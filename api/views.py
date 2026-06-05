@@ -106,7 +106,7 @@ class AuditLogMixin:
 
 # crud para periodo academico (GET, POST, PUT, DELETE)
 class PeriodoAcademicoViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = PeriodoAcademico.objects.all()
+    queryset = PeriodoAcademico.objects.select_related("usuario_creacion", "usuario_modificacion")
     serializer_class = PeriodoAcademicoSerializer
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['periodo_id', 'nombre', 'fecha_inicio', 'fecha_fin', 'activo']
@@ -114,7 +114,7 @@ class PeriodoAcademicoViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
 # crud para departamento
 class DepartamentoViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = Departamento.objects.all()
+    queryset = Departamento.objects.select_related("usuario_creacion", "usuario_modificacion")
     serializer_class = DepartamentoSerializer
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['departamento_id', 'nombre', 'codigo']
@@ -122,7 +122,7 @@ class DepartamentoViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
 # crud para edificio
 class EdificioViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = Edificio.objects.all()
+    queryset = Edificio.objects.select_related("usuario_creacion", "usuario_modificacion")
     serializer_class = EdificioSerializer
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['edificio_id', 'nombre']
@@ -130,7 +130,7 @@ class EdificioViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
 # crud para persona
 class PersonaViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = Persona.objects.all()
+    queryset = Persona.objects.select_related("usuario_creacion", "usuario_modificacion")
     serializer_class = PersonaSerializer
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['persona_id', 'tipo_doc', 'numero_doc', 'nombres', 'apellidos', 'email', 'activo', 'creado_en']
@@ -138,7 +138,7 @@ class PersonaViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
 # crud para estudiante
 class EstudianteViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = Estudiante.objects.all()
+    queryset = Estudiante.objects.select_related("persona", "usuario_creacion", "usuario_modificacion")
     serializer_class = EstudianteSerializer
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['estudiante_id', 'codigo', 'fecha_ingreso', 'activo']
@@ -146,7 +146,12 @@ class EstudianteViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
 # crud para docente
 class DocenteViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = Docente.objects.all()
+    queryset = Docente.objects.select_related(
+        "persona",
+        "departamento",
+        "usuario_creacion",
+        "usuario_modificacion",
+    )
     serializer_class = DocenteSerializer
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['docente_id', 'codigo', 'departamento', 'titulo_maximo', 'dedicacion', 'activo']
@@ -154,7 +159,11 @@ class DocenteViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
 # crud para programa
 class ProgramaViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = Programa.objects.all()
+    queryset = Programa.objects.select_related(
+        "departamento",
+        "usuario_creacion",
+        "usuario_modificacion",
+    )
     serializer_class = ProgramaSerializer
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['programa_id', 'nombre', 'codigo', 'nivel_formacion', 'modalidad', 'activo']
@@ -162,7 +171,13 @@ class ProgramaViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
 # crud para curso
 class CursoViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = Curso.objects.all()
+    queryset = Curso.objects.select_related(
+        "programa",
+        "programa__departamento",
+        "departamento",
+        "usuario_creacion",
+        "usuario_modificacion",
+    )
     serializer_class = CursoSerializer
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['curso_id', 'nombre', 'codigo', 'creditos', 'nivel_semestre', 'electiva', 'activo']
@@ -170,7 +185,18 @@ class CursoViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
 # crud para grupo curso
 class GrupoCursoViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = GrupoCurso.objects.all()
+    queryset = GrupoCurso.objects.select_related(
+        "curso",
+        "curso__programa",
+        "curso__programa__departamento",
+        "curso__departamento",
+        "docente",
+        "docente__persona",
+        "docente__departamento",
+        "periodo",
+        "usuario_creacion",
+        "usuario_modificacion",
+    )
     serializer_class = GrupoCursoSerializer
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['grupo_id', 'curso', 'docente', 'periodo', 'nombre_grupo', 'cupo_maximo', 'modalidad']
@@ -178,7 +204,22 @@ class GrupoCursoViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
 # crud para matricula
 class MatriculaViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = Matricula.objects.all()
+    queryset = Matricula.objects.select_related(
+        "estudiante",
+        "estudiante__persona",
+        "grupo",
+        "grupo__curso",
+        "grupo__curso__programa",
+        "grupo__curso__programa__departamento",
+        "grupo__curso__departamento",
+        "grupo__docente",
+        "grupo__docente__persona",
+        "grupo__docente__departamento",
+        "grupo__periodo",
+        "periodo",
+        "usuario_creacion",
+        "usuario_modificacion",
+    )
     serializer_class = MatriculaSerializer
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['matricula_id', 'estudiante', 'grupo', 'periodo', 'estado', 'fecha_matricula', 'nota_final']
@@ -186,7 +227,19 @@ class MatriculaViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
 # crud para evaluacion
 class EvaluacionViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = Evaluacion.objects.all()
+    queryset = Evaluacion.objects.select_related(
+        "grupo",
+        "grupo__curso",
+        "grupo__curso__programa",
+        "grupo__curso__programa__departamento",
+        "grupo__curso__departamento",
+        "grupo__docente",
+        "grupo__docente__persona",
+        "grupo__docente__departamento",
+        "grupo__periodo",
+        "usuario_creacion",
+        "usuario_modificacion",
+    )
     serializer_class = EvaluacionSerializer
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['evaluacion_id', 'grupo', 'tipo', 'nombre', 'fecha_aplicacion', 'porcentaje', 'nota_maxima']
@@ -194,7 +247,22 @@ class EvaluacionViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
 # crud para nota evaluacion
 class NotaEvaluacionViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = NotaEvaluacion.objects.all()
+    queryset = NotaEvaluacion.objects.select_related(
+        "evaluacion",
+        "evaluacion__grupo",
+        "evaluacion__grupo__curso",
+        "evaluacion__grupo__curso__programa",
+        "evaluacion__grupo__curso__programa__departamento",
+        "evaluacion__grupo__curso__departamento",
+        "evaluacion__grupo__docente",
+        "evaluacion__grupo__docente__persona",
+        "evaluacion__grupo__docente__departamento",
+        "evaluacion__grupo__periodo",
+        "estudiante",
+        "estudiante__persona",
+        "usuario_creacion",
+        "usuario_modificacion",
+    )
     serializer_class = NotaEvaluacionSerializer
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['nota_id', 'evaluacion', 'estudiante', 'nota', 'ausente', 'registrado_en']
@@ -202,7 +270,7 @@ class NotaEvaluacionViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
 # crud para aula
 class AulaViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = Aula.objects.all()
+    queryset = Aula.objects.select_related("edificio", "usuario_creacion", "usuario_modificacion")
     serializer_class = AulaSerializer
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['aula_id', 'edificio', 'tipo', 'nombre', 'piso', 'capacidad', 'activa']
@@ -210,7 +278,21 @@ class AulaViewSet(AuditLogMixin, viewsets.ModelViewSet):
 
 # crud para horario
 class HorarioViewSet(AuditLogMixin, viewsets.ModelViewSet):
-    queryset = Horario.objects.all()
+    queryset = Horario.objects.select_related(
+        "grupo",
+        "grupo__curso",
+        "grupo__curso__programa",
+        "grupo__curso__programa__departamento",
+        "grupo__curso__departamento",
+        "grupo__docente",
+        "grupo__docente__persona",
+        "grupo__docente__departamento",
+        "grupo__periodo",
+        "aula",
+        "aula__edificio",
+        "usuario_creacion",
+        "usuario_modificacion",
+    )
     serializer_class = HorarioSerializer
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['horario_id', 'grupo', 'aula', 'dia', 'hora_inicio', 'hora_fin']
