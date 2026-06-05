@@ -1,3 +1,7 @@
+import json
+import logging
+
+from django.utils import timezone
 from rest_framework import filters, viewsets
 
 from .models import (
@@ -34,8 +38,74 @@ from .serializers import (
     HorarioSerializer,
 )
 
+audit_logger = logging.getLogger("api.audit")
+
+
+class AuditLogMixin:
+
+    def perform_create(self, serializer):
+        user = self._get_authenticated_user()
+        instance = serializer.save(
+            usuario_creacion=user,
+            usuario_modificacion=user,
+        )
+        self._write_audit_log("CREO", instance)
+
+    def perform_update(self, serializer):
+        instance = serializer.save(usuario_modificacion=self._get_authenticated_user())
+        self._write_audit_log("MODIFICO", instance)
+
+    def perform_destroy(self, instance):
+        self._write_audit_log("ELIMINO", instance)
+        instance.delete()
+
+    def _write_audit_log(self, action, instance):
+        request = self.request
+        user = getattr(request, "user", None)
+
+        if user and user.is_authenticated:
+            username = user.get_username()
+            user_id = user.pk
+        else:
+            username = "anonimo"
+            user_id = None
+
+        audit_logger.info(
+            json.dumps(
+                {
+                    "fecha": timezone.now().isoformat(),
+                    "accion": action,
+                    "usuario_id": user_id,
+                    "usuario": username,
+                    "ip": self._get_client_ip(request),
+                    "metodo": request.method,
+                    "ruta": request.get_full_path(),
+                    "modelo": instance._meta.label,
+                    "tabla": instance._meta.db_table,
+                    "registro_id": instance.pk,
+                    "registro": str(instance),
+                    "campos": list(request.data.keys()) if hasattr(request, "data") else [],
+                },
+                ensure_ascii=False,
+                default=str,
+            )
+        )
+
+    def _get_client_ip(self, request):
+        forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if forwarded_for:
+            return forwarded_for.split(",")[0].strip()
+        return request.META.get("REMOTE_ADDR")
+
+    def _get_authenticated_user(self):
+        user = getattr(self.request, "user", None)
+        if user and user.is_authenticated:
+            return user
+        return None
+
+
 # crud para periodo academico (GET, POST, PUT, DELETE)
-class PeriodoAcademicoViewSet(viewsets.ModelViewSet):
+class PeriodoAcademicoViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = PeriodoAcademico.objects.all()
     serializer_class = PeriodoAcademicoSerializer
     filter_backends = [filters.OrderingFilter]
@@ -43,7 +113,7 @@ class PeriodoAcademicoViewSet(viewsets.ModelViewSet):
     ordering = ['periodo_id']
 
 # crud para departamento
-class DepartamentoViewSet(viewsets.ModelViewSet):
+class DepartamentoViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = Departamento.objects.all()
     serializer_class = DepartamentoSerializer
     filter_backends = [filters.OrderingFilter]
@@ -51,7 +121,7 @@ class DepartamentoViewSet(viewsets.ModelViewSet):
     ordering = ['nombre']
 
 # crud para edificio
-class EdificioViewSet(viewsets.ModelViewSet):
+class EdificioViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = Edificio.objects.all()
     serializer_class = EdificioSerializer
     filter_backends = [filters.OrderingFilter]
@@ -59,7 +129,7 @@ class EdificioViewSet(viewsets.ModelViewSet):
     ordering = ['nombre']
 
 # crud para persona
-class PersonaViewSet(viewsets.ModelViewSet):
+class PersonaViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = Persona.objects.all()
     serializer_class = PersonaSerializer
     filter_backends = [filters.OrderingFilter]
@@ -67,7 +137,7 @@ class PersonaViewSet(viewsets.ModelViewSet):
     ordering = ['apellidos', 'nombres']
 
 # crud para estudiante
-class EstudianteViewSet(viewsets.ModelViewSet):
+class EstudianteViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = Estudiante.objects.all()
     serializer_class = EstudianteSerializer
     filter_backends = [filters.OrderingFilter]
@@ -75,7 +145,7 @@ class EstudianteViewSet(viewsets.ModelViewSet):
     ordering = ['codigo']
 
 # crud para docente
-class DocenteViewSet(viewsets.ModelViewSet):
+class DocenteViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = Docente.objects.all()
     serializer_class = DocenteSerializer
     filter_backends = [filters.OrderingFilter]
@@ -83,7 +153,7 @@ class DocenteViewSet(viewsets.ModelViewSet):
     ordering = ['codigo']
 
 # crud para programa
-class ProgramaViewSet(viewsets.ModelViewSet):
+class ProgramaViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = Programa.objects.all()
     serializer_class = ProgramaSerializer
     filter_backends = [filters.OrderingFilter]
@@ -91,7 +161,7 @@ class ProgramaViewSet(viewsets.ModelViewSet):
     ordering = ['nombre']
 
 # crud para curso
-class CursoViewSet(viewsets.ModelViewSet):
+class CursoViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = Curso.objects.all()
     serializer_class = CursoSerializer
     filter_backends = [filters.OrderingFilter]
@@ -99,7 +169,7 @@ class CursoViewSet(viewsets.ModelViewSet):
     ordering = ['codigo']
 
 # crud para grupo curso
-class GrupoCursoViewSet(viewsets.ModelViewSet):
+class GrupoCursoViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = GrupoCurso.objects.all()
     serializer_class = GrupoCursoSerializer
     filter_backends = [filters.OrderingFilter]
@@ -107,7 +177,7 @@ class GrupoCursoViewSet(viewsets.ModelViewSet):
     ordering = ['periodo', 'curso', 'nombre_grupo']
 
 # crud para matricula
-class MatriculaViewSet(viewsets.ModelViewSet):
+class MatriculaViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = Matricula.objects.all()
     serializer_class = MatriculaSerializer
     filter_backends = [filters.OrderingFilter]
@@ -115,7 +185,7 @@ class MatriculaViewSet(viewsets.ModelViewSet):
     ordering = ['-fecha_matricula']
 
 # crud para evaluacion
-class EvaluacionViewSet(viewsets.ModelViewSet):
+class EvaluacionViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = Evaluacion.objects.all()
     serializer_class = EvaluacionSerializer
     filter_backends = [filters.OrderingFilter]
@@ -123,7 +193,7 @@ class EvaluacionViewSet(viewsets.ModelViewSet):
     ordering = ['fecha_aplicacion', 'nombre']
 
 # crud para nota evaluacion
-class NotaEvaluacionViewSet(viewsets.ModelViewSet):
+class NotaEvaluacionViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = NotaEvaluacion.objects.all()
     serializer_class = NotaEvaluacionSerializer
     filter_backends = [filters.OrderingFilter]
@@ -131,7 +201,7 @@ class NotaEvaluacionViewSet(viewsets.ModelViewSet):
     ordering = ['-registrado_en']
 
 # crud para aula
-class AulaViewSet(viewsets.ModelViewSet):
+class AulaViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = Aula.objects.all()
     serializer_class = AulaSerializer
     filter_backends = [filters.OrderingFilter]
@@ -139,7 +209,7 @@ class AulaViewSet(viewsets.ModelViewSet):
     ordering = ['nombre']
 
 # crud para horario
-class HorarioViewSet(viewsets.ModelViewSet):
+class HorarioViewSet(AuditLogMixin, viewsets.ModelViewSet):
     queryset = Horario.objects.all()
     serializer_class = HorarioSerializer
     filter_backends = [filters.OrderingFilter]
